@@ -12,7 +12,7 @@ import {
 // --- Configuration ---
 const MAIN_DATA_SHEET_ID = '1f1cUsWsRcS-I7VdVEVj1oLyalTtJLlCVnzUiWh77ff0';
 const AUTH_DATA_SHEET_ID = '144YySNLbFulSD3bRVeRCxe5PoyrLPl5-vvuVLS8uVds';
-const DASHBOARD_VERSION = "08-0326OP-DA"; // Update Version: 08-0326OP-DA (Adjust IR status)
+const DASHBOARD_VERSION = "09-0326OP-DA"; // Update Version: 09-0326OP-DA (Interactive Completion Breakdown)
 const RATE_CARD_URL = "https://ratecard-gold-theta.vercel.app/";
 
 const getCsvUrl = (id) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
@@ -149,8 +149,8 @@ const formatNumber = (val) => new Intl.NumberFormat('en-US').format(val || 0);
 const getIrStatus = (val) => {
   const v = Math.round(val);
   if (v >= 80) return { label: 'High', color: 'text-emerald-600', bg: 'bg-emerald-50' };
-  if (v >= 40) return { label: 'Mid', color: 'text-amber-600', bg: 'bg-amber-50' };
-  if (v > 10) return { label: 'Low', color: 'text-orange-600', bg: 'bg-orange-50' };
+  if (v >= 30) return { label: 'Mid', color: 'text-amber-600', bg: 'bg-amber-50' };
+  if (v > 5) return { label: 'Low', color: 'text-orange-600', bg: 'bg-orange-50' };
   return { label: 'Alert', color: 'text-rose-600', bg: 'bg-rose-50' };
 };
 
@@ -351,9 +351,9 @@ const ProjectModal = ({ project, onClose }) => {
   );
 };
 
-// --- Category Modal ---
-const CategoryProjectsModal = ({ category, projects, onProjectSelect, onClose }) => {
-  if (!category) return null;
+// --- Generic Project List Modal ---
+const ProjectListModal = ({ title, subtitle, projects, onProjectSelect, onClose }) => {
+  if (!title) return null;
   return (
     <div className="fixed inset-0 z-[105] flex items-center justify-center bg-indigo-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
       <div className="bg-white w-full max-w-5xl h-[80vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-300">
@@ -361,8 +361,8 @@ const CategoryProjectsModal = ({ category, projects, onProjectSelect, onClose })
           <div className="flex items-center gap-3">
             <div className="bg-white/20 p-2 rounded-xl"><Layers className="w-6 h-6" /></div>
             <div>
-              <h2 className="text-xl font-bold leading-tight">Category: {category}</h2>
-              <p className="text-indigo-200 text-sm font-medium">Found {projects.length} projects in this category.</p>
+              <h2 className="text-xl font-bold leading-tight">{title}</h2>
+              <p className="text-indigo-200 text-sm font-medium">{subtitle || `Found ${projects.length} projects.`}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors"><X className="w-6 h-6" /></button>
@@ -371,30 +371,37 @@ const CategoryProjectsModal = ({ category, projects, onProjectSelect, onClose })
           Double-click any project name to view deep analysis
         </div>
         <div className="flex-1 overflow-y-auto p-4 bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map((p, idx) => (
-              <div 
-                key={idx} 
-                onDoubleClick={() => onProjectSelect(p)}
-                className="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md uppercase">{p.project_no}</span>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${p.kpi_39 === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                    {p.kpi_39}
-                  </span>
+          {projects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <Activity className="w-12 h-12 mb-2 opacity-20" />
+              <p className="font-bold">No projects found in this selection.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {projects.map((p, idx) => (
+                <div 
+                  key={idx} 
+                  onDoubleClick={() => onProjectSelect(p)}
+                  className="p-5 bg-white border border-gray-100 rounded-2xl shadow-sm hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md uppercase">{p.project_no}</span>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase ${p.kpi_39 === 'Pass' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                      {p.kpi_39}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-gray-800 line-clamp-2 mb-3 group-hover:text-indigo-700 transition-colors">{p.project_name}</h4>
+                  <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase border-t pt-3">
+                    <div className="flex items-center gap-1"><Users className="w-3 h-3" /> {formatNumber(p.totalComplete)} Complete</div>
+                    <div className="flex items-center gap-1"><Target className="w-3 h-3" /> {Math.round(p.percentComplete)}% Goal</div>
+                  </div>
                 </div>
-                <h4 className="text-sm font-bold text-gray-800 line-clamp-2 mb-3 group-hover:text-indigo-700 transition-colors">{p.project_name}</h4>
-                <div className="flex justify-between items-center text-[10px] text-gray-400 font-bold uppercase border-t pt-3">
-                  <div className="flex items-center gap-1"><Users className="w-3 h-3" /> {formatNumber(p.totalComplete)} Complete</div>
-                  <div className="flex items-center gap-1"><Target className="w-3 h-3" /> {Math.round(p.percentComplete)}% Goal</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
-          <button onClick={onClose} className="px-6 py-2 bg-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-300 transition-all">Close</button>
+          <button onClick={onClose} className="px-6 py-2 bg-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-300 transition-all">Close View</button>
         </div>
       </div>
     </div>
@@ -417,6 +424,7 @@ const App = () => {
   const [displayCount, setDisplayCount] = useState(10);
   const [selectedProject, setSelectedProject] = useState(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState(null);
+  const [selectedBucketName, setSelectedBucketName] = useState(null);
 
   const calculateAllMetrics = (dataset) => {
     if (!dataset || dataset.length === 0) return null;
@@ -503,6 +511,7 @@ const App = () => {
     const validWorkingDay = filteredData.filter(d => d.workingDay > 0);
     const avgWorkingDay = validWorkingDay.length ? validWorkingDay.reduce((a, b) => a + (b.workingDay || 0), 0) / validWorkingDay.length : 0;
     
+    // --- Specific Calculation for Completion Rate Breakdown (AP + Meow only) ---
     const apMeowData = filteredData.map(d => ({
       ...d,
       apMeowPct: d.quota > 0 ? (((d.apComplete || 0) + (d.meowComplete || 0)) / d.quota) * 100 : 0
@@ -546,6 +555,22 @@ const App = () => {
     return filteredData.filter(d => d.category === selectedCategoryName);
   }, [filteredData, selectedCategoryName]);
 
+  const bucketProjects = useMemo(() => {
+    if (!selectedBucketName) return [];
+    const apMeowData = filteredData.map(d => ({
+      ...d,
+      apMeowPct: d.quota > 0 ? (((d.apComplete || 0) + (d.meowComplete || 0)) / d.quota) * 100 : 0
+    }));
+
+    switch (selectedBucketName) {
+      case 'Target Met': return apMeowData.filter(d => d.apMeowPct >= 100);
+      case 'High': return apMeowData.filter(d => d.apMeowPct >= 90 && d.apMeowPct < 100);
+      case 'Medium': return apMeowData.filter(d => d.apMeowPct >= 70 && d.apMeowPct <= 90);
+      case 'Low': return apMeowData.filter(d => d.apMeowPct < 70);
+      default: return [];
+    }
+  }, [filteredData, selectedBucketName]);
+
   const scatterData = filteredData.filter(d => (d.ir || 0) > 0 && (d.loi || 0) > 0).map(d => ({ x: d.ir, y: d.loi, z: d.totalComplete, name: d.project_name }));
   const categoryData = useMemo(() => {
     const cats = {};
@@ -561,7 +586,13 @@ const App = () => {
   }, [filteredData]);
 
   const mbokakrStatusData = useMemo(() => [ { name: 'Achieved Target', value: stats.mbokakrPassCount, color: '#10B981' }, { name: 'Missed Target', value: Math.max(0, filteredData.length - stats.mbokakrPassCount), color: '#F59E0B' } ], [stats.mbokakrPassCount, filteredData.length]);
-  const completionCardData = useMemo(() => [ { name: 'Target Met', desc: '≥ 100% Complete', value: stats.buckets.more100, color: 'bg-green-50 text-green-700', border: 'border-green-200', icon: CheckCircle, iconColor: 'text-green-600' }, { name: 'High', desc: '90-99% Complete', value: stats.buckets.more90, color: 'bg-teal-50 text-teal-700', border: 'border-teal-200', icon: TrendingUp, iconColor: 'text-teal-600' }, { name: 'Medium', desc: '70-90% Complete', value: stats.buckets.bet70_90, color: 'bg-yellow-50 text-yellow-700', border: 'border-yellow-200', icon: AlertTriangle, iconColor: 'text-yellow-600' }, { name: 'Low', desc: '< 70% Complete', value: stats.buckets.less70, color: 'bg-red-50 text-red-700', border: 'border-red-200', icon: XCircle, iconColor: 'text-red-600' }, ], [stats.buckets]);
+  
+  const completionCardData = useMemo(() => [ 
+    { name: 'Target Met', desc: '≥ 100% Complete', value: stats.buckets.more100, color: 'bg-green-50 text-green-700', border: 'border-green-200', icon: CheckCircle, iconColor: 'text-green-600' }, 
+    { name: 'High', desc: '90-99% Complete', value: stats.buckets.more90, color: 'bg-teal-50 text-teal-700', border: 'border-teal-200', icon: TrendingUp, iconColor: 'text-teal-600' }, 
+    { name: 'Medium', desc: '70-90% Complete', value: stats.buckets.bet70_90, color: 'bg-yellow-50 text-yellow-700', border: 'border-yellow-200', icon: AlertTriangle, iconColor: 'text-yellow-600' }, 
+    { name: 'Low', desc: '< 70% Complete', value: stats.buckets.less70, color: 'bg-red-50 text-red-700', border: 'border-red-200', icon: XCircle, iconColor: 'text-red-600' }, 
+  ], [stats.buckets]);
 
   const monthlyTrendData = useMemo(() => {
     const monthOrder = { 'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'June': 6, 'July': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12 };
@@ -693,10 +724,15 @@ const App = () => {
             </div>
             <div className="lg:col-span-3 bg-gray-50 rounded-lg p-6 border border-gray-200 flex flex-col md:flex-row gap-8">
                 <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-gray-600 mb-6 flex items-center gap-2"><Target className="w-4 h-4"/> Completion Rate Breakdown</h3>
+                    <h3 className="text-sm font-semibold text-gray-600 mb-4 flex items-center gap-2"><Target className="w-4 h-4"/> Completion Rate Breakdown</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mb-4 tracking-widest">Double-click a card to explore projects in that level</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {completionCardData.map((item, idx) => (
-                            <div key={idx} className={`p-4 rounded-xl border ${item.border} ${item.color} shadow-sm flex flex-col justify-between h-32 hover:shadow-md transition-shadow`}>
+                            <div 
+                              key={idx} 
+                              onDoubleClick={() => setSelectedBucketName(item.name)}
+                              className={`p-4 rounded-xl border ${item.border} ${item.color} shadow-sm flex flex-col justify-between h-32 hover:shadow-md transition-all cursor-pointer select-none active:scale-[0.98] hover:border-opacity-100 border-opacity-40`}
+                            >
                                 <div className="flex justify-between items-start">
                                     <div><p className="font-bold text-lg">{String(item.name)}</p><p className="text-xs opacity-80">{String(item.desc)}</p></div>
                                     <div className="p-2 bg-white rounded-full bg-opacity-50"><item.icon className={`w-5 h-5 ${item.iconColor}`} /></div>
@@ -841,11 +877,21 @@ const App = () => {
 
       {/* Popups */}
       {selectedCategoryName && (
-        <CategoryProjectsModal 
-          category={selectedCategoryName} 
+        <ProjectListModal 
+          title={`Category: ${selectedCategoryName}`} 
+          subtitle={`Detailed view of all projects tagged under ${selectedCategoryName}`}
           projects={categoryProjects} 
           onProjectSelect={(p) => setSelectedProject(p)}
           onClose={() => setSelectedCategoryName(null)} 
+        />
+      )}
+      {selectedBucketName && (
+        <ProjectListModal 
+          title={`Completion Level: ${selectedBucketName}`} 
+          subtitle={`Analysis based on AP+Meow completion rate criteria.`}
+          projects={bucketProjects} 
+          onProjectSelect={(p) => setSelectedProject(p)}
+          onClose={() => setSelectedBucketName(null)} 
         />
       )}
       {selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} />}
