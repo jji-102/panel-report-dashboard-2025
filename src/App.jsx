@@ -12,7 +12,7 @@ import {
 // --- Configuration ---
 const MAIN_DATA_SHEET_ID = '1f1cUsWsRcS-I7VdVEVj1oLyalTtJLlCVnzUiWh77ff0';
 const AUTH_DATA_SHEET_ID = '144YySNLbFulSD3bRVeRCxe5PoyrLPl5-vvuVLS8uVds';
-const DASHBOARD_VERSION = "09-0326OP-DA"; // Update Version: 09-0326OP-DA (Interactive Completion Breakdown)
+const DASHBOARD_VERSION = "10-0326OP-DA"; // Update Version: 10-0326OP-DA (Advanced Comparison View)
 const RATE_CARD_URL = "https://ratecard-gold-theta.vercel.app/";
 
 const getCsvUrl = (id) => `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv`;
@@ -200,24 +200,32 @@ const DropdownFilter = ({ label, options, selected, onChange }) => {
   );
 };
 
-const SummaryCard = ({ title, value, subValue, icon: Icon, color = "blue", comparison, comparisonYear }) => {
+const SummaryCard = ({ title, value, subValue, icon: Icon, color = "blue", comparisonPct, comparisonVal, comparisonYear }) => {
   const colorClasses = { blue: "bg-blue-50 text-blue-600", green: "bg-green-50 text-green-600", purple: "bg-purple-50 text-purple-600", orange: "bg-orange-50 text-orange-600", red: "bg-red-50 text-red-600", indigo: "bg-indigo-50 text-indigo-600" };
-  const hasComparison = typeof comparison === 'number' && !isNaN(comparison);
+  const hasComparison = typeof comparisonPct === 'number' && !isNaN(comparisonPct);
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-start justify-between hover:shadow-md transition-shadow duration-200 h-full">
-      <div>
-        <p className="text-sm font-medium text-gray-500 mb-1 line-clamp-1" title={title}>{title}</p>
-        <h3 className="text-xl font-bold text-gray-800 tracking-tight">{value}</h3>
-        {subValue && <p className="text-xs text-gray-400 mt-1">{subValue}</p>}
-        {hasComparison && (
-          <div className={`text-[10px] mt-2 flex items-center font-bold ${comparison >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-            {comparison >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-            {Math.abs(comparison).toFixed(1)}% vs {comparisonYear || 'Prev Year'}
-          </div>
-        )}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col justify-between hover:shadow-md transition-shadow duration-200 h-full min-h-[140px]">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 line-clamp-1" title={title}>{title}</p>
+          <h3 className="text-xl font-black text-gray-800 tracking-tight leading-none">{value}</h3>
+          {subValue && <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase">{subValue}</p>}
+        </div>
+        <div className={`p-2 rounded-lg ${colorClasses[color]}`}><Icon className="w-4 h-4" /></div>
       </div>
-      <div className={`p-2 rounded-lg ${colorClasses[color]}`}><Icon className="w-5 h-5" /></div>
+      
+      {hasComparison && (
+        <div className="mt-4 pt-3 border-t border-gray-50 flex flex-col gap-1">
+          <div className={`text-[10px] flex items-center font-black ${comparisonPct >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+            {comparisonPct >= 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+            {Math.abs(comparisonPct).toFixed(1)}%
+          </div>
+          <div className="text-[9px] text-gray-400 font-bold leading-none">
+            vs {comparisonYear}: <span className="text-gray-600 font-black">{comparisonVal}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -511,7 +519,6 @@ const App = () => {
     const validWorkingDay = filteredData.filter(d => d.workingDay > 0);
     const avgWorkingDay = validWorkingDay.length ? validWorkingDay.reduce((a, b) => a + (b.workingDay || 0), 0) / validWorkingDay.length : 0;
     
-    // --- Specific Calculation for Completion Rate Breakdown (AP + Meow only) ---
     const apMeowData = filteredData.map(d => ({
       ...d,
       apMeowPct: d.quota > 0 ? (((d.apComplete || 0) + (d.meowComplete || 0)) / d.quota) * 100 : 0
@@ -537,6 +544,7 @@ const App = () => {
         const sortedProjects = [...filteredData].sort((a, b) => (b.percentComplete || 0) - (a.percentComplete || 0));
         if (sortedProjects[0]) { bestProject = { name: sortedProjects[0].project_name, val: sortedProjects[0].percentComplete || 0 }; }
     }
+    
     let comparison = null; let prevYearLabel = null;
     if (filters.year.length === 1) {
       prevYearLabel = (parseInt(filters.year[0]) - 1).toString();
@@ -544,7 +552,23 @@ const App = () => {
       const prev = calculateAllMetrics(prevYearData);
       if (prev) {
         const getPct = (c, p) => p !== 0 ? ((c - p) / Math.abs(p)) * 100 : 0;
-        comparison = { projects: getPct(current.totalProjects, prev.totalProjects), quota: getPct(current.targetQuota, prev.targetQuota), completes: getPct(current.allComplete, prev.allComplete), apCompletes: getPct(current.apComplete, prev.apComplete), meowCompletes: getPct(current.meowComplete, prev.meowComplete), fwCompletes: getPct(current.fwComplete, prev.fwComplete), badSample: getPct(current.badSample, prev.badSample), answers: getPct(current.allAnswers, prev.allAnswers), ir: getPct(current.avgIr, prev.avgIr), loi: getPct(current.avgLoi, prev.avgLoi), apCost: getPct(current.apCost, prev.apCost), thbCost: getPct(current.thbCost, prev.thbCost), avgCpiUsd: getPct(current.avgCpiUsd, prev.avgCpiUsd), avgCpiThb: getPct(current.avgCpiThb, prev.avgCpiThb), kpiRate: getPct(current.kpiRate, prev.kpiRate) };
+        comparison = { 
+          projects: { pct: getPct(current.totalProjects, prev.totalProjects), val: formatNumber(prev.totalProjects) },
+          quota: { pct: getPct(current.targetQuota, prev.targetQuota), val: formatNumber(prev.targetQuota) },
+          completes: { pct: getPct(current.allComplete, prev.allComplete), val: formatNumber(prev.allComplete) },
+          apCompletes: { pct: getPct(current.apComplete, prev.apComplete), val: formatNumber(prev.apComplete) },
+          meowCompletes: { pct: getPct(current.meowComplete, prev.meowComplete), val: formatNumber(prev.meowComplete) },
+          fwCompletes: { pct: getPct(current.fwComplete, prev.fwComplete), val: formatNumber(prev.fwComplete) },
+          badSample: { pct: getPct(current.badSample, prev.badSample), val: formatNumber(prev.badSample) },
+          answers: { pct: getPct(current.allAnswers, prev.allAnswers), val: formatNumber(prev.allAnswers) },
+          ir: { pct: getPct(current.avgIr, prev.avgIr), val: Math.round(prev.avgIr) + '%' },
+          loi: { pct: getPct(current.avgLoi, prev.avgLoi), val: Math.round(prev.avgLoi) + ' m' },
+          apCost: { pct: getPct(current.apCost, prev.apCost), val: formatCurrency(prev.apCost, 'USD') },
+          thbCost: { pct: getPct(current.thbCost, prev.thbCost), val: formatNumber(prev.thbCost) },
+          avgCpiUsd: { pct: getPct(current.avgCpiUsd, prev.avgCpiUsd), val: formatCurrency(prev.avgCpiUsd, 'USD') },
+          avgCpiThb: { pct: getPct(current.avgCpiThb, prev.avgCpiThb), val: prev.avgCpiThb.toFixed(2) },
+          kpiRate: { pct: getPct(current.kpiRate, prev.kpiRate), val: prev.kpiRate.toFixed(1) + '%' }
+        };
       }
     }
     return { ...current, mobileRate, thirdPartyRate, avgWorkingDay, buckets, mbokakrPassCount, avgPercentComplete, bestCategory, bestProject, comparison, prevYearLabel };
@@ -683,25 +707,25 @@ const App = () => {
       <div className="mb-8">
           <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center gap-2"><LayoutDashboard className="w-5 h-5"/> Executive Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-            <SummaryCard title="Total Projects" value={stats.totalProjects} icon={Layers} color="indigo" comparison={stats.comparison?.projects} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Target Quota" value={formatNumber(stats.targetQuota)} icon={Target} color="purple" comparison={stats.comparison?.quota} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="All Participants" value={formatNumber(stats.allAnswers)} subValue="(RD)" icon={Users} color="purple" comparison={stats.comparison?.answers} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Avg. IR" value={`${Math.round(stats.avgIr)}%`} icon={Activity} color="orange" comparison={stats.comparison?.ir} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Avg. LOI" value={`${Math.round(stats.avgLoi)} min`} icon={Clock} color="orange" comparison={stats.comparison?.loi} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Total Projects" value={stats.totalProjects} icon={Layers} color="indigo" comparisonPct={stats.comparison?.projects.pct} comparisonVal={stats.comparison?.projects.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Target Quota" value={formatNumber(stats.targetQuota)} icon={Target} color="purple" comparisonPct={stats.comparison?.quota.pct} comparisonVal={stats.comparison?.quota.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="All Participants" value={formatNumber(stats.allAnswers)} subValue="(RD)" icon={Users} color="purple" comparisonPct={stats.comparison?.answers.pct} comparisonVal={stats.comparison?.answers.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Avg. IR" value={`${Math.round(stats.avgIr)}%`} icon={Activity} color="orange" comparisonPct={stats.comparison?.ir.pct} comparisonVal={stats.comparison?.ir.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Avg. LOI" value={`${Math.round(stats.avgLoi)} min`} icon={Clock} color="orange" comparisonPct={stats.comparison?.loi.pct} comparisonVal={stats.comparison?.loi.val} comparisonYear={stats.prevYearLabel} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-            <SummaryCard title="All Completes" value={formatNumber(stats.allComplete)} subValue="AP + Meow + FW" icon={CheckCircle} color="indigo" comparison={stats.comparison?.completes} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="AP Completes" value={formatNumber(stats.apComplete)} icon={Users} color="indigo" comparison={stats.comparison?.apCompletes} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Meow Completes" value={formatNumber(stats.meowComplete)} icon={Users} color="indigo" comparison={stats.comparison?.meowCompletes} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="FW (CLT) Completes" value={formatNumber(stats.fwComplete)} icon={Users} color="blue" comparison={stats.comparison?.fwCompletes} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Total Bad Sample" value={formatNumber(stats.badSample)} icon={AlertTriangle} color="red" comparison={stats.comparison?.badSample} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="All Completes" value={formatNumber(stats.allComplete)} subValue="AP + Meow + FW" icon={CheckCircle} color="indigo" comparisonPct={stats.comparison?.completes.pct} comparisonVal={stats.comparison?.completes.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="AP Completes" value={formatNumber(stats.apComplete)} icon={Users} color="indigo" comparisonPct={stats.comparison?.apCompletes.pct} comparisonVal={stats.comparison?.apCompletes.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Meow Completes" value={formatNumber(stats.meowComplete)} icon={Users} color="indigo" comparisonPct={stats.comparison?.meowCompletes.pct} comparisonVal={stats.comparison?.meowCompletes.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="FW (CLT) Completes" value={formatNumber(stats.fwComplete)} icon={Users} color="blue" comparisonPct={stats.comparison?.fwCompletes.pct} comparisonVal={stats.comparison?.fwCompletes.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Total Bad Sample" value={formatNumber(stats.badSample)} icon={AlertTriangle} color="red" comparisonPct={stats.comparison?.badSample.pct} comparisonVal={stats.comparison?.badSample.val} comparisonYear={stats.prevYearLabel} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <SummaryCard title="Total Cost (USD)" value={formatCurrency(stats.apCost)} icon={DollarSign} color="green" comparison={stats.comparison?.apCost} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Total Cost (THB)" value={formatNumber(stats.thbCost)} subValue="THB" icon={DollarSign} color="green" comparison={stats.comparison?.thbCost} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Avg. CPI (USD)" value={formatCurrency(stats.avgCpiUsd)} subValue="AP Basis" icon={TrendingUp} color="blue" comparison={stats.comparison?.avgCpiUsd} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="Avg. CPI (THB)" value={formatNumber(stats.avgCpiThb.toFixed(2))} subValue="THB (AP Basis)" icon={TrendingUp} color="blue" comparison={stats.comparison?.avgCpiThb} comparisonYear={stats.prevYearLabel} />
-            <SummaryCard title="KPI Pass Rate" value={`${stats.kpiRate.toFixed(1)}%`} icon={CheckCircle} color={stats.kpiRate > 90 ? "green" : "red"} comparison={stats.comparison?.kpiRate} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Total Cost (USD)" value={formatCurrency(stats.apCost, 'USD')} icon={DollarSign} color="green" comparisonPct={stats.comparison?.apCost.pct} comparisonVal={stats.comparison?.apCost.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Total Cost (THB)" value={formatNumber(stats.thbCost)} subValue="THB" icon={DollarSign} color="green" comparisonPct={stats.comparison?.thbCost.pct} comparisonVal={stats.comparison?.thbCost.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Avg. CPI (USD)" value={formatCurrency(stats.avgCpiUsd, 'USD')} subValue="AP Basis" icon={TrendingUp} color="blue" comparisonPct={stats.comparison?.avgCpiUsd.pct} comparisonVal={stats.comparison?.avgCpiUsd.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="Avg. CPI (THB)" value={formatNumber(stats.avgCpiThb.toFixed(2))} subValue="THB (AP Basis)" icon={TrendingUp} color="blue" comparisonPct={stats.comparison?.avgCpiThb.pct} comparisonVal={stats.comparison?.avgCpiThb.val} comparisonYear={stats.prevYearLabel} />
+            <SummaryCard title="KPI Pass Rate" value={`${stats.kpiRate.toFixed(1)}%`} icon={CheckCircle} color={stats.kpiRate > 90 ? "green" : "red"} comparisonPct={stats.comparison?.kpiRate.pct} comparisonVal={stats.comparison?.kpiRate.val} comparisonYear={stats.prevYearLabel} />
           </div>
       </div>
 
